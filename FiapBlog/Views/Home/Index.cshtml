@@ -1,0 +1,214 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center" id="blog-title">
+    <h1 class="display-4">Fiap Blog</h1>
+    <p>Estudar e Compartilhar</p>
+</div>
+
+<div class="alert alert-info show" id="connection-status"></div>
+
+<div class="blog-list card-columns" id="blog-list">
+</div>
+
+<div class="center">
+    <button class="btn btn-primary" onclick="pageEvents.loadMoreBlogPosts();">ver mais</button>
+    <br /><br />
+</div>
+
+<div id="blog-item-container"></div>
+
+<div class="create-profile">
+
+    <h2>Como acessar algumas funções Nativas do Celular?</h2>
+    <br />        <br />
+    <div>
+        Camera: <input type="file" accept="image/*" capture="camera" />
+        <br />        <br />
+    </div>
+    <div>
+        Gravação: <input type="file" accept="video/*" capture="camcorder">
+        <br />        <br />
+    </div>
+    <div>
+        Microfone: <input type="file" accept="audio/*" capture="microphone">
+        <br />        <br />
+    </div>
+    <div>
+        <button onclick="getGeolocation();" type="button" class="btn btn-primary" id="address-button">Clique aqui para obter seu Endereço</button>
+        <br /><br />
+    </div>
+    <div>
+        <div id="address-found-input" style="display:none;">Cidade/Estado: <input id="address-found" type="text" /></div>
+        <br />        <br />
+    </div>
+    <div>
+        <button type="button" id="vibrar-celular" onclick="vibrate();" class="btn btn-primary">Vibrar celular</button>
+        <br />        <br />
+    </div>
+    <div>
+        <canvas id="canvas" width="200" height="200" style="border: 1px solid black;"></canvas>
+        <div id="rotation-info"></div>
+        <br /><br />
+    </div>
+</div>
+
+<script id="blog-card" type="text/template">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">{{PostId}} - {{Title}}</h5>
+            <p class="card-text">{{ShortDescription}}</p>
+            <button onclick="pageEvents.loadBlogPost('{{Link}}');" class="btn btn-primary">ir</button>
+        </div>
+    </div>
+</script>
+<script id="blog-item" type="text/template">
+    <div id="{{Link}}" class="blog-item">
+        {{Content}}
+    </div>
+    <a href="#blog-title" class="btn btn-primary">voltar</a>
+</script>
+
+<script id="blog-content-not-found" type="text/template">
+    <h1>
+        Ups, artigo não está no Cache!
+    </h1>
+    <div>
+        Você quer que a gente continue tentando fazer download do artigo
+        em plano de fundo e te avise quando estiver disponível?
+    </div>
+    <br />
+    <button class="btn btn-primary download-start" onclick="pageEvents.setBackgroundFetch('{{Link}}');">Sim!</button>
+    <br />
+    <br />
+    <div id="status-download" style="display:none;">
+        <div class="progress">
+            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+        </div>
+        <div class="text-success">
+            <p>pronto!</p>
+            <button class="btn btn-success" onclick="pageEvents.loadBlogPost('{{Link}}');">ler!</button>
+        </div>
+    </div>
+
+</script>
+<script type="text/javascript">
+    var GOOGLE_MAP_KEY = 'AIzaSyDkokSgwFgLELGKOW5xxDVNhYNBCzJSo_c';
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+if ('Gyroscope' in window) {
+
+    let gyroscope = new Gyroscope();
+    gyroscope.addEventListener('reading', e => rotationHandler({
+        alpha: gyroscope.x,
+        beta: gyroscope.y,
+        gamma: gyroscope.z
+    }));
+    gyroscope.start();
+}
+
+function rotationHandler(rotation) {
+    var info, xyz = "[X, Y, Z]";
+
+    var alpha; var beta; var gamma;
+    if (rotation.alpha && rotation.beta && rotation.gamma) {
+        alpha = rotation.alpha.toFixed(2) * 100;
+        beta = rotation.beta.toFixed(2) * 100;
+        gamma = rotation.gamma.toFixed(2) * 100;
+    }
+
+    info = xyz.replace("X", alpha);
+    info = info.replace("Y", beta);
+    info = info.replace("Z", gamma);
+    $('#rotation-info').html(info);
+
+    ctx.fillStyle = 'green';
+    ctx.fillRect(100, 100, alpha, 10);
+
+    ctx.fillStyle = 'yellow';
+    ctx.fillRect(120, 120, beta, 10);
+
+    ctx.fillStyle = 'blue';
+    ctx.fillRect(140, 140, gamma, 10);
+
+    var interval = setInterval(function () {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    },50000);
+}
+
+    function ipLookUp() {
+        $.ajax('http://ip-api.com/json')
+            .then(
+                function success(response) {
+                    console.log('User\'s Location Data is ', response);
+                    console.log('User\'s Country', response.country);
+                },
+
+                function fail(data, status) {
+                    console.log('Request failed.  Returned status of',
+                        status);
+                }
+            );
+    }
+
+    function getAddress(latitude, longitude) {
+
+        var url = 'https://maps.googleapis.com/maps/api/geocode/json?latlng='
+            + latitude + ',' + longitude + '&key=' + GOOGLE_MAP_KEY;
+
+        console.log("url:" + url);
+
+        $.ajax(url)
+            .then(
+                function success(response) {
+
+                    if (response === undefined || response.results === undefined) return;
+
+                    var dataFromCity = response.results.find(obj => { return obj.types.includes('locality'); });
+                    $('#address-found').val(dataFromCity.formatted_address);
+                    $('#address-button').hide();
+                    $('#address-found-input').show();
+
+                    console.log('User\'s Address Data is ' + response);
+                },
+                function fail(status) {
+                    console.log('Request failed.  Returned status of' + status);
+                }
+            )
+    }
+
+    function getGeolocation() {
+        if ("geolocation" in navigator) {
+            // check if geolocation is supported/enabled on current browser
+            navigator.geolocation.getCurrentPosition(
+                function success(position) {
+                    // for when getting location is a success
+                    console.log('latitude ' + position.coords.latitude +
+                        ' longitude ' + position.coords.longitude);
+
+                    getAddress(position.coords.latitude, position.coords.longitude);
+                },
+                function error(error_message) {
+                    // for when getting location results in an error
+                    console.log('An error has occured while retrieving location ' + error_message);
+                    ipLookUp();
+                });
+        } else {
+            // geolocation is not supported
+            // get your location some other way
+            console.log('geolocation is not enabled on this browser');
+            ipLookUp();
+        }
+    }
+
+    function vibrate() {
+        if ("vibrate" in navigator) {
+            // vibration API supported
+            navigator.vibrate = navigator.vibrate || navigator.webkitVibrate || navigator.mozVibrate || navigator.msVibrate;
+            navigator.vibrate([1000]);
+        }
+    }
+
+</script>
